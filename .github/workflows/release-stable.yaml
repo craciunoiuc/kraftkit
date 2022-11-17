@@ -34,7 +34,7 @@ jobs:
       
       # Temporary workaround until this pipeline uses the 'myself' buildenv
       - name: Install libgit2-dev
-        run: apt-get update && apt-get install -y --no-install-recommends libgit2-dev curl
+        run: apt-get update && apt-get install -y --no-install-recommends libgit2-dev
       
       - name: Generate GoReleaser configuration
         run: |
@@ -43,6 +43,7 @@ jobs:
       - name: Run GoReleaser
         run: |
           echo "$GOOGLE_APPLICATION_JSON" > /tmp/gs.json
+          curl --version
           goreleaser build \
             --config goreleaser-stable.yaml \
             --skip-validate
