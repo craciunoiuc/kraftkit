@@ -34,7 +34,7 @@ jobs:
       
       # Temporary workaround until this pipeline uses the 'myself' buildenv
       - name: Install libgit2-dev
-        run: apt-get update && apt-get install -y --no-install-recommends libgit2-dev
+        run: apt-get update && apt-get install -y --no-install-recommends libgit2-dev curl
       
       - name: Generate GoReleaser configuration
         run: |
@@ -49,9 +49,14 @@ jobs:
           goreleaser release \
             --config goreleaser-stable.yaml \
             --rm-dist \
-            --skip-validate
+            --skip-validate \
+            --skip-publish
           curl -F package=@$(ls ./dist/kraftkit_*.deb) https://${FURY_TOKEN}@push.fury.io/${FURY_USER}/
           curl -F package=@$(ls ./dist/kraftkit_*.rpm) https://${FURY_TOKEN}@push.fury.io/${FURY_USER}/
           curl -F package=@$(ls ./dist/kraftkit_*.apk) https://${FURY_TOKEN}@push.fury.io/${FURY_USER}/
+          goreleaser release \
+            --config goreleaser-stable.yaml \
+            --rm-dist \
+            --skip-validate
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
