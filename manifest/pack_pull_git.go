@@ -202,10 +202,10 @@ func pullGit(ctx context.Context, manifest *Manifest, opts ...pack.PullOption) e
 	}
 	entry.Infof("git clone")
 
-	_, err = git.PlainCloneContext(ctx, local, false, copts)
+	reps, err := git.PlainCloneContext(ctx, local, false, copts)
 	switch {
 	case errors.Is(err, git.ErrRepositoryAlreadyExists):
-		reps, err := git.PlainOpen(local)
+		reps, err = git.PlainOpen(local)
 		if err != nil {
 			return fmt.Errorf("could not open repository: %w", err)
 		}
@@ -225,6 +225,20 @@ func pullGit(ctx context.Context, manifest *Manifest, opts ...pack.PullOption) e
 		}
 	case err != nil:
 		return fmt.Errorf("could not clone repository: %w", err)
+	}
+
+	if version != "" && gitplumbing.IsHash(version) {
+		wktree, err := reps.Worktree()
+		if err != nil {
+			return err
+		}
+
+		if err := wktree.Checkout(&git.CheckoutOptions{
+			Hash:  gitplumbing.NewHash(version),
+			Force: true,
+		}); err != nil {
+			return fmt.Errorf("could not checkout hash: %v", err)
+		}
 	}
 
 	// Wait for the go routine to finish

@@ -293,17 +293,7 @@ func (m *manifestManager) Catalog(ctx context.Context, qopts ...packmanager.Quer
 
 	log.G(ctx).WithFields(query.Fields()).Debug("querying manifest catalog")
 
-	if len(query.Source()) > 0 {
-		provider, err := NewProvider(ctx, query.Source(), mopts...)
-		if err != nil {
-			return nil, err
-		}
-
-		manifests, err = provider.Manifests()
-		if err != nil {
-			return nil, err
-		}
-	} else if query.Remote() {
+	if query.Remote() {
 		// If Catalog is executed in multiple successive calls, which occurs when
 		// searching for multiple packages sequentially, check if the cacheIndex has
 		// been set.  Even if UseCache set has been set, it means that at least once
@@ -480,10 +470,10 @@ func (m *manifestManager) IsCompatible(ctx context.Context, source string, qopts
 		return m, true, nil
 	}
 
-	if _, err := NewProvider(ctx, source,
-		WithUpdate(packmanager.NewQuery(qopts...).Remote()),
-	); err != nil {
-		return nil, false, fmt.Errorf("incompatible source: %w", err)
+	query := packmanager.NewQuery(qopts...)
+
+	if _, err := NewProvider(ctx, source, query.Version()); err != nil {
+		return nil, false, fmt.Errorf("incompatible source")
 	}
 
 	return m, true, nil

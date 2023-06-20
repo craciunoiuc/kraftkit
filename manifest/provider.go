@@ -19,7 +19,7 @@ import (
 type Provider interface {
 	// Manifests returns a slice of Manifests which can be returned by this
 	// Provider
-	Manifests() ([]*Manifest, error)
+	Manifests(context.Context) ([]*Manifest, error)
 
 	// PullManifest from the provider.
 	PullManifest(context.Context, *Manifest, ...pack.PullOption) error
@@ -38,11 +38,11 @@ type Provider interface {
 // provider which does not return an error is indicator that it is supported and
 // thus the return of NewProvider a compatible interface Provider able to gather
 // information about the manifest.
-func NewProvider(ctx context.Context, path string, mopts ...ManifestOption) (Provider, error) {
+func NewProvider(ctx context.Context, path, version string, mopts ...ManifestOption) (Provider, error) {
 	log.G(ctx).WithFields(logrus.Fields{
 		"path": path,
 	}).Trace("trying manifest provider")
-	provider, err := NewManifestProvider(ctx, path, mopts...)
+	provider, err := NewManifestProvider(ctx, path, version, mopts...)
 	if err == nil {
 		log.G(ctx).WithFields(logrus.Fields{
 			"path": path,
@@ -53,7 +53,7 @@ func NewProvider(ctx context.Context, path string, mopts ...ManifestOption) (Pro
 	log.G(ctx).WithFields(logrus.Fields{
 		"path": path,
 	}).Trace("trying index provider")
-	provider, err = NewManifestIndexProvider(ctx, path, mopts...)
+	provider, err = NewManifestIndexProvider(ctx, path, version, mopts...)
 	if err == nil {
 		log.G(ctx).WithFields(logrus.Fields{
 			"path": path,
@@ -64,7 +64,7 @@ func NewProvider(ctx context.Context, path string, mopts ...ManifestOption) (Pro
 	log.G(ctx).WithFields(logrus.Fields{
 		"path": path,
 	}).Trace("trying directory provider")
-	provider, err = NewDirectoryProvider(ctx, path, mopts...)
+	provider, err = NewDirectoryProvider(ctx, path, version, mopts...)
 	if err == nil {
 		log.G(ctx).WithFields(logrus.Fields{
 			"path": path,
@@ -77,12 +77,12 @@ func NewProvider(ctx context.Context, path string, mopts ...ManifestOption) (Pro
 	log.G(ctx).WithFields(logrus.Fields{
 		"path": path,
 	}).Trace("trying git provider")
-	provider, err = NewGitProvider(ctx, path, mopts...)
+	provider, err = NewGitProvider(ctx, path, version, mopts...)
 	if err == nil || strings.Contains(path, "github.com") {
 		log.G(ctx).WithFields(logrus.Fields{
 			"path": path,
 		}).Trace("trying github provider")
-		ghProvider, err := NewGitHubProvider(ctx, path, mopts...)
+		ghProvider, err := NewGitHubProvider(ctx, path, version, mopts...)
 		if err == nil {
 			log.G(ctx).WithFields(logrus.Fields{
 				"path": path,
@@ -101,7 +101,7 @@ func NewProvider(ctx context.Context, path string, mopts ...ManifestOption) (Pro
 
 // NewProviderFromString returns a provider based on a giving string which
 // identifies the provider
-func NewProviderFromString(ctx context.Context, provider, path string, entity any, mopts ...ManifestOption) (Provider, error) {
+func NewProviderFromString(ctx context.Context, provider, path, version string, entity any, mopts ...ManifestOption) (Provider, error) {
 	switch provider {
 	case "index":
 		return &ManifestIndexProvider{
@@ -116,11 +116,11 @@ func NewProviderFromString(ctx context.Context, provider, path string, entity an
 			manifest: entity.(*Manifest),
 		}, nil
 	case "github":
-		return NewGitHubProvider(ctx, path, mopts...)
+		return NewGitHubProvider(ctx, path, version, mopts...)
 	case "git":
-		return NewGitProvider(ctx, path, mopts...)
-	case "directory", "dir":
-		return NewDirectoryProvider(ctx, path, mopts...)
+		return NewGitProvider(ctx, path, version, mopts...)
+	case "directory":
+		return NewDirectoryProvider(ctx, path, version, mopts...)
 	}
 
 	return nil, fmt.Errorf("could not determine provider for: %s", path)

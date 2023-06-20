@@ -136,8 +136,8 @@ func (mp mpack) Pull(ctx context.Context, opts ...pack.PullOption) error {
 	return mp.manifest.Provider.PullManifest(ctx, mp.manifest, opts...)
 }
 
-func (mp mpack) PulledAt(context.Context) (bool, time.Time, error) {
-	manifests, err := mp.manifest.Provider.Manifests()
+func (mp mpack) PulledAt(ctx context.Context) (bool, time.Time, error) {
+	manifests, err := mp.manifest.Provider.Manifests(ctx)
 	if err != nil {
 		return false, time.Time{}, err
 	}
