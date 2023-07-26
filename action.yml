@@ -1,0 +1,58 @@
+name: Build unikernel images with Unikraft
+description: Build, push and run unikernel images with Unikraft.
+author: Unikraft
+
+branding:
+  icon: package
+  color: blue
+
+runs:
+  using: docker
+  image: buildenvs/github-action.Dockerfile
+
+inputs:
+  # Global flags
+  log-level:
+    description: Log-level of the action
+    required: false
+    default: info
+  
+  # Project flags
+  workdir:
+    description: Path to the project directory.
+    required: false
+  kraftfile:
+    description: Alternative path for the Kraftfile or inline-Kraftfile.
+    required: false
+
+  # Build flags
+  arch:
+    description: Architecture to build for.
+    required: false
+  plat:
+    description: Platform to build for.
+    required: false
+  target:
+    description: Name of the target to build for.
+    required: false
+  
+  # Running flags
+  execute:
+    description: Run the unikernel.
+    required: false
+    default: false
+
+  # Packaging flags
+  output:
+    description: Set the output type and path.
+    required: false
+  kconfig:
+    description: Include all set KConfig with the output.
+    required: false
+  rootfs:
+    description: Include a rootfs (initramfs) at path.
+    required: false
+  push:
+    description: Push the output.
+    required: false
+    default: false
