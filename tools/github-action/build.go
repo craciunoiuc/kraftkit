@@ -11,11 +11,12 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"kraftkit.sh/exec"
-	"kraftkit.sh/internal/cli"
 	"kraftkit.sh/iostreams"
 	"kraftkit.sh/log"
 	"kraftkit.sh/make"
 	"kraftkit.sh/unikraft/app"
+
+	"github-action/internal/cli"
 )
 
 func (opts *GithubAction) build(ctx context.Context) error {

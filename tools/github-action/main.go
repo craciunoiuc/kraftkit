@@ -10,11 +10,12 @@ import (
 	"os"
 	"runtime"
 
+	"github-action/internal/cli"
+
 	"github.com/rancher/wrangler/pkg/signals"
 	"github.com/spf13/cobra"
 	"kraftkit.sh/cmdfactory"
 	"kraftkit.sh/config"
-	"kraftkit.sh/internal/cli"
 	"kraftkit.sh/iostreams"
 	"kraftkit.sh/log"
 	"kraftkit.sh/packmanager"
