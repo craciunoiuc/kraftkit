@@ -10,30 +10,10 @@ import (
 
 	"kraftkit.sh/pack"
 	"kraftkit.sh/packmanager"
-	"kraftkit.sh/unikraft/app"
 )
 
-// pack
+// push
 func (opts *GithubAction) push(ctx context.Context) error {
-	popts := []app.ProjectOption{
-		app.WithProjectWorkdir(opts.Workdir),
-	}
-
-	if len(opts.Kraftfile) > 0 {
-		popts = append(popts, app.WithProjectKraftfile(opts.Kraftfile))
-	} else {
-		popts = append(popts, app.WithProjectDefaultKraftfiles())
-	}
-
-	// Read the kraft yaml specification and get the target name
-	project, err := app.NewProjectFromOptions(ctx, popts...)
-	if err != nil {
-		return err
-	}
-
-	// Get the target name
-	ref := project.Name()
-
 	var pmananger packmanager.PackageManager
 	if opts.Format != "auto" {
 		pmananger = packmanager.PackageManagers()[pack.PackageFormat(opts.Format)]
@@ -44,10 +24,10 @@ func (opts *GithubAction) push(ctx context.Context) error {
 		pmananger = packmanager.G(ctx)
 	}
 
-	if pm, compatible, err := pmananger.IsCompatible(ctx, ref); err == nil && compatible {
+	if pm, compatible, err := pmananger.IsCompatible(ctx, opts.Output); err == nil && compatible {
 		packages, err := pm.Catalog(ctx,
 			packmanager.WithCache(true),
-			packmanager.WithName(ref),
+			packmanager.WithName(opts.Output),
 		)
 		if err != nil {
 			return err

@@ -163,7 +163,6 @@ func (opts *GithubAction) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	if opts.Output != "" {
-
 		if err := opts.pack(ctx); err != nil {
 			return fmt.Errorf("could not package unikernel: %w", err)
 		}

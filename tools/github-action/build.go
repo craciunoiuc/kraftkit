@@ -18,6 +18,7 @@ import (
 	"kraftkit.sh/unikraft/target"
 )
 
+// build
 func (opts *GithubAction) build(ctx context.Context) error {
 	// Filter project targets by any provided input arguments
 	targets := target.Filter(
