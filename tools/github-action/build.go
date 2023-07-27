@@ -15,13 +15,12 @@ import (
 	"kraftkit.sh/log"
 	"kraftkit.sh/make"
 	"kraftkit.sh/unikraft/app"
-
-	"github-action/internal/cli"
+	"kraftkit.sh/unikraft/target"
 )
 
 func (opts *GithubAction) build(ctx context.Context) error {
 	// Filter project targets by any provided input arguments
-	targets := cli.FilterTargets(
+	targets := target.Filter(
 		opts.project.Targets(),
 		opts.Arch,
 		opts.Plat,

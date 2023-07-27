@@ -10,17 +10,16 @@ import (
 	"os"
 	"runtime"
 
-	"github-action/internal/cli"
-
 	"github.com/rancher/wrangler/pkg/signals"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"kraftkit.sh/cmdfactory"
 	"kraftkit.sh/config"
-	"kraftkit.sh/iostreams"
 	"kraftkit.sh/log"
 	"kraftkit.sh/packmanager"
 	"kraftkit.sh/unikraft/app"
 
+	machineapi "kraftkit.sh/api/machine/v1alpha1"
 	_ "kraftkit.sh/manifest"
 	// _ "kraftkit.sh/oci"
 )
@@ -43,10 +42,16 @@ type GithubAction struct {
 	Execute bool `long:"run" env:"INPUT_EXECUTE" usage:""`
 
 	// Packaging flags
-	Output  string `long:"output" env:"INPUT_OUTPUT" usage:""`
-	Kconfig bool   `long:"kconfig" env:"INPUT_KCONFIG" usage:""`
-	Rootfs  string `long:"rootfs" env:"INPUT_ROOTFS" usage:""`
-	Push    bool   `long:"push" env:"INPUT_PUSH" usage:""`
+	Args              []string `long:"args" env:"INPUT_ARGS" usage:""`
+	Format            string   `long:"format" env:"INPUT_FORMAT" usage:""`
+	InitRd            string   `long:"initrd" env:"INPUT_INITRD" usage:""`
+	Memory            string   `long:"memory" env:"INPUT_MEMORY" usage:""`
+	Name              string   `long:"name" env:"INPUT_NAME" usage:""`
+	Output            string   `long:"output" env:"INPUT_OUTPUT" usage:""`
+	Kconfig           bool     `long:"kconfig" env:"INPUT_KCONFIG" usage:""`
+	Rootfs            string   `long:"rootfs" env:"INPUT_ROOTFS" usage:""`
+	Push              bool     `long:"push" env:"INPUT_PUSH" usage:""`
+	machineController machineapi.MachineService
 
 	// Internal attributes
 	project app.Application
@@ -69,6 +74,7 @@ func (opts *GithubAction) Pre(cmd *cobra.Command, args []string) (err error) {
 
 	cmd.SetContext(packmanager.WithPackageManager(ctx, pm))
 
+	fmt.Println(opts.Workdir)
 	if len(opts.Workdir) == 0 {
 		opts.Workdir, err = os.Getwd()
 		if err != nil {
@@ -141,13 +147,99 @@ func (opts *GithubAction) Run(cmd *cobra.Command, args []string) error {
 		if err := opts.pack(ctx); err != nil {
 			return fmt.Errorf("could not package unikernel: %w", err)
 		}
+
+		if err := opts.push(ctx); err != nil {
+			return fmt.Errorf("could not push unikernel: %w", err)
+		}
 	}
 
 	return nil
 }
 
-func withLightweightDefaultConfigManager() cli.CliOption {
-	return func(copts *cli.CliOptions) error {
+type lightweightCliOptions struct {
+	Logger         *logrus.Logger
+	ConfigManager  *config.ConfigManager[config.KraftKit]
+	PackageManager packmanager.PackageManager
+}
+
+type lightweightCliOption func(*lightweightCliOptions) error
+
+// withLightweightDefaultLogger sets up the built in logger based on provided
+// config found from the ConfigManager.
+func withLightweightDefaultLogger() lightweightCliOption {
+	return func(copts *lightweightCliOptions) error {
+		if copts.Logger != nil {
+			return nil
+		}
+
+		// Configure the logger based on parameters set by in KraftKit's
+		// configuration
+		if copts.ConfigManager == nil {
+			copts.Logger = log.L
+			return nil
+		}
+
+		// Set up a default logger based on the internal TextFormatter
+		logger := logrus.New()
+
+		switch log.LoggerTypeFromString(copts.ConfigManager.Config.Log.Type) {
+		case log.QUIET:
+			formatter := new(logrus.TextFormatter)
+			logger.Formatter = formatter
+
+		case log.BASIC:
+			formatter := new(log.TextFormatter)
+			formatter.FullTimestamp = true
+			formatter.DisableTimestamp = true
+
+			if copts.ConfigManager.Config.Log.Timestamps {
+				formatter.DisableTimestamp = false
+			} else {
+				formatter.TimestampFormat = ">"
+			}
+
+			logger.Formatter = formatter
+
+		case log.FANCY:
+			formatter := new(log.TextFormatter)
+			formatter.FullTimestamp = true
+			formatter.DisableTimestamp = true
+
+			if copts.ConfigManager.Config.Log.Timestamps {
+				formatter.DisableTimestamp = false
+			} else {
+				formatter.TimestampFormat = ">"
+			}
+
+			logger.Formatter = formatter
+
+		case log.JSON:
+			formatter := new(logrus.JSONFormatter)
+			formatter.DisableTimestamp = true
+
+			if copts.ConfigManager.Config.Log.Timestamps {
+				formatter.DisableTimestamp = false
+			}
+
+			logger.Formatter = formatter
+		}
+
+		level, ok := log.Levels()[copts.ConfigManager.Config.Log.Level]
+		if !ok {
+			logger.Level = logrus.InfoLevel
+		} else {
+			logger.Level = level
+		}
+
+		// Save the logger
+		copts.Logger = logger
+
+		return nil
+	}
+}
+
+func withLightweightDefaultConfigManager() lightweightCliOption {
+	return func(copts *lightweightCliOptions) error {
 		cfg, err := config.NewDefaultKraftKitConfig()
 		if err != nil {
 			return err
@@ -170,15 +262,13 @@ func main() {
 	}
 
 	ctx := signals.SetupSignalContext()
-	copts := &cli.CliOptions{}
+	copts := &lightweightCliOptions{}
 
 	runtime.LockOSThread()
 
-	for _, o := range []cli.CliOption{
+	for _, o := range []lightweightCliOption{
 		withLightweightDefaultConfigManager(),
-		cli.WithDefaultIOStreams(),
-		cli.WithDefaultLogger(),
-		// cli.WithDefaultHTTPClient(),
+		withLightweightDefaultLogger(),
 	} {
 		if err := o(copts); err != nil {
 			fmt.Println(err)
@@ -194,11 +284,6 @@ func main() {
 	// Set up the logger in the context if it is available
 	if copts.Logger != nil {
 		ctx = log.WithLogger(ctx, copts.Logger)
-	}
-
-	// Set up the iostreams in the context if it is available
-	if copts.IOStreams != nil {
-		ctx = iostreams.WithIOStreams(ctx, copts.IOStreams)
 	}
 
 	cmdfactory.Main(ctx, cmd)
