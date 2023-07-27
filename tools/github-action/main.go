@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"runtime"
 
 	"github.com/rancher/wrangler/pkg/signals"
 	"github.com/sirupsen/logrus"
@@ -16,6 +15,7 @@ import (
 	"kraftkit.sh/cmdfactory"
 	"kraftkit.sh/config"
 	"kraftkit.sh/log"
+	mplatform "kraftkit.sh/machine/platform"
 	"kraftkit.sh/packmanager"
 	"kraftkit.sh/unikraft/app"
 
@@ -27,7 +27,7 @@ import (
 type GithubAction struct {
 	// Input arguments for the action
 	// Global flags
-	LogLevel string `long:"log-level" env:"INPUT_LOG_LEVEL" usage:"" default:"info"`
+	Loglevel string `long:"loglevel" env:"INPUT_LOGLEVEL" usage:"" default:"info"`
 
 	// Project flags
 	Workdir   string `long:"workdir" env:"INPUT_WORKDIR" usage:"Path to working directory (default is cwd)"`
@@ -62,11 +62,15 @@ func (opts *GithubAction) Pre(cmd *cobra.Command, args []string) (err error) {
 		return fmt.Errorf("target and platform/architecture are mutually exclusive")
 	}
 
-	// switch opts.LogLevel {
-	// case
-	// }
-
 	ctx := cmd.Context()
+
+	switch opts.Loglevel {
+	case "debug":
+		log.G(ctx).SetLevel(logrus.DebugLevel)
+	case "trace":
+		log.G(ctx).SetLevel(logrus.TraceLevel)
+	}
+
 	pm, err := packmanager.NewUmbrellaManager(ctx)
 	if err != nil {
 		return err
@@ -74,7 +78,6 @@ func (opts *GithubAction) Pre(cmd *cobra.Command, args []string) (err error) {
 
 	cmd.SetContext(packmanager.WithPackageManager(ctx, pm))
 
-	fmt.Println(opts.Workdir)
 	if len(opts.Workdir) == 0 {
 		opts.Workdir, err = os.Getwd()
 		if err != nil {
@@ -138,121 +141,41 @@ func (opts *GithubAction) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	if opts.Execute {
+		var err error
+
+		if opts.Name == "" {
+			return fmt.Errorf("no name specified for the unikernel")
+		}
+
+		machineStrategy, ok := mplatform.Strategies()[mplatform.PlatformsByName()[opts.Plat]]
+		if !ok {
+			return fmt.Errorf("unsupported platform driver: %s (contributions welcome!)", opts.Plat)
+		}
+
+		opts.machineController, err = machineStrategy.NewMachineV1alpha1(ctx)
+		if err != nil {
+			return err
+		}
+
 		if err := opts.execute(ctx); err != nil {
 			return fmt.Errorf("could not run unikernel: %w", err)
 		}
 	}
 
-	if len(opts.Output) > 0 {
+	if opts.Output != "" {
+
 		if err := opts.pack(ctx); err != nil {
 			return fmt.Errorf("could not package unikernel: %w", err)
 		}
 
-		if err := opts.push(ctx); err != nil {
-			return fmt.Errorf("could not push unikernel: %w", err)
+		if opts.Push {
+			if err := opts.push(ctx); err != nil {
+				return fmt.Errorf("could not push unikernel: %w", err)
+			}
 		}
 	}
 
 	return nil
-}
-
-type lightweightCliOptions struct {
-	Logger         *logrus.Logger
-	ConfigManager  *config.ConfigManager[config.KraftKit]
-	PackageManager packmanager.PackageManager
-}
-
-type lightweightCliOption func(*lightweightCliOptions) error
-
-// withLightweightDefaultLogger sets up the built in logger based on provided
-// config found from the ConfigManager.
-func withLightweightDefaultLogger() lightweightCliOption {
-	return func(copts *lightweightCliOptions) error {
-		if copts.Logger != nil {
-			return nil
-		}
-
-		// Configure the logger based on parameters set by in KraftKit's
-		// configuration
-		if copts.ConfigManager == nil {
-			copts.Logger = log.L
-			return nil
-		}
-
-		// Set up a default logger based on the internal TextFormatter
-		logger := logrus.New()
-
-		switch log.LoggerTypeFromString(copts.ConfigManager.Config.Log.Type) {
-		case log.QUIET:
-			formatter := new(logrus.TextFormatter)
-			logger.Formatter = formatter
-
-		case log.BASIC:
-			formatter := new(log.TextFormatter)
-			formatter.FullTimestamp = true
-			formatter.DisableTimestamp = true
-
-			if copts.ConfigManager.Config.Log.Timestamps {
-				formatter.DisableTimestamp = false
-			} else {
-				formatter.TimestampFormat = ">"
-			}
-
-			logger.Formatter = formatter
-
-		case log.FANCY:
-			formatter := new(log.TextFormatter)
-			formatter.FullTimestamp = true
-			formatter.DisableTimestamp = true
-
-			if copts.ConfigManager.Config.Log.Timestamps {
-				formatter.DisableTimestamp = false
-			} else {
-				formatter.TimestampFormat = ">"
-			}
-
-			logger.Formatter = formatter
-
-		case log.JSON:
-			formatter := new(logrus.JSONFormatter)
-			formatter.DisableTimestamp = true
-
-			if copts.ConfigManager.Config.Log.Timestamps {
-				formatter.DisableTimestamp = false
-			}
-
-			logger.Formatter = formatter
-		}
-
-		level, ok := log.Levels()[copts.ConfigManager.Config.Log.Level]
-		if !ok {
-			logger.Level = logrus.InfoLevel
-		} else {
-			logger.Level = level
-		}
-
-		// Save the logger
-		copts.Logger = logger
-
-		return nil
-	}
-}
-
-func withLightweightDefaultConfigManager() lightweightCliOption {
-	return func(copts *lightweightCliOptions) error {
-		cfg, err := config.NewDefaultKraftKitConfig()
-		if err != nil {
-			return err
-		}
-		cfgm, err := config.NewConfigManager(cfg)
-		if err != nil {
-			return err
-		}
-
-		copts.ConfigManager = cfgm
-
-		return nil
-	}
 }
 
 func main() {
@@ -262,29 +185,39 @@ func main() {
 	}
 
 	ctx := signals.SetupSignalContext()
-	copts := &lightweightCliOptions{}
 
-	runtime.LockOSThread()
+	cfg, err := config.NewDefaultKraftKitConfig()
+	if err != nil {
+		panic(err)
+	}
 
-	for _, o := range []lightweightCliOption{
-		withLightweightDefaultConfigManager(),
-		withLightweightDefaultLogger(),
-	} {
-		if err := o(copts); err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
+	cfgm, err := config.NewConfigManager(cfg)
+	if err != nil {
+		panic(err)
 	}
 
 	// Set up the config manager in the context if it is available
-	if copts.ConfigManager != nil {
-		ctx = config.WithConfigManager(ctx, copts.ConfigManager)
+	ctx = config.WithConfigManager(ctx, cfgm)
+
+	cmd, args, err := cmd.Find(os.Args[1:])
+	if err != nil {
+		panic(err)
 	}
 
-	// Set up the logger in the context if it is available
-	if copts.Logger != nil {
-		ctx = log.WithLogger(ctx, copts.Logger)
+	if err := cmdfactory.AttributeFlags(cmd, cfg, args...); err != nil {
+		panic(err)
 	}
+
+	// Set up a default logger based on the internal TextFormatter
+	logger := logrus.New()
+
+	formatter := new(log.TextFormatter)
+	formatter.FullTimestamp = true
+	formatter.DisableTimestamp = true
+	logger.Formatter = formatter
+
+	// Set up the logger in the context if it is available
+	ctx = log.WithLogger(ctx, logger)
 
 	cmdfactory.Main(ctx, cmd)
 }

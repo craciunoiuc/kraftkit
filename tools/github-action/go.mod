@@ -1,4 +1,4 @@
-module github-action
+module kraftkit.sh/tools/github-action
 
 go 1.20
 

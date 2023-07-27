@@ -38,22 +38,25 @@ func (runner *runnerProject) String() string {
 
 // Runnable implements Runner.
 func (runner *runnerProject) Runnable(ctx context.Context, opts *GithubAction, args ...string) (bool, error) {
-	var err error
-
-	cwd, err := os.Getwd()
-	if err != nil {
-		return false, fmt.Errorf("getting current working directory: %w", err)
-	}
-
-	if len(args) == 0 {
-		runner.workdir = cwd
-	} else {
-		runner.workdir = cwd
-		runner.args = args
-		if f, err := os.Stat(args[0]); err == nil && f.IsDir() {
-			runner.workdir = args[0]
-			runner.args = args[1:]
+	if opts.Workdir == "" {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return false, fmt.Errorf("getting current working directory: %w", err)
 		}
+
+		if len(args) == 0 {
+			runner.workdir = cwd
+		} else {
+			runner.workdir = cwd
+			runner.args = args
+			if f, err := os.Stat(args[0]); err == nil && f.IsDir() {
+				runner.workdir = args[0]
+				runner.args = args[1:]
+			}
+		}
+	} else {
+		runner.workdir = opts.Workdir
+		runner.args = args
 	}
 
 	if !app.IsWorkdirInitialized(runner.workdir) {
@@ -296,6 +299,14 @@ loop:
 		case <-ctx.Done():
 			break loop
 		}
+	}
+
+	if machine.Status.State == machineapi.MachineStateExited {
+		return nil
+	}
+
+	if machine.Status.State == machineapi.MachineStateFailed {
+		return fmt.Errorf("machine failed when running")
 	}
 
 	if _, err := opts.machineController.Stop(ctx, machine); err != nil {
