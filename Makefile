@@ -200,4 +200,5 @@ buildenv-gcc: ## OCI image containing a Unikraft-centric build of gcc.
 buildenv-myself-full: ## OCI image containing the build environment for KraftKit.
 buildenv-myself: ## OCI image containing KraftKit binaries.
 buildenv-qemu: ## OCI image containing a Unikraft-centric build of QEMU.
+buildenv-github-action: ## OCI image used for building Unikraft unikernels with a slimmed down version of kraftkit.
 kraft: ## The kraft binary.
