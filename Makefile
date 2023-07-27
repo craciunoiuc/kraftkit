@@ -15,6 +15,7 @@ REGISTRY    ?= kraftkit.sh
 ORG         ?= unikraft
 REPO        ?= kraftkit
 BIN         ?= kraft
+TOOLS       ?= github-action go-generate-qemu-devices protoc-gen-go-netconn webinstall
 GOMOD       ?= kraftkit.sh
 IMAGE_TAG   ?= latest
 GO_VERSION  ?= 1.20
@@ -121,6 +122,12 @@ $(addprefix $(.PROXY), $(BIN)):
 		-o $(DISTDIR)/$@ \
 		$(WORKDIR)/cmd/$@
 
+.PHONY: tools
+tools: $(TOOLS)
+
+$(addprefix $(.PROXY), $(TOOLS)):
+	cd $(WORKDIR)/tools/$@ && $(GO) build -o $(DISTDIR)/$@ . && cd $(WORKDIR)
+
 # Proxy all "build environment" (buildenvs) targets
 buildenv-%:
 		$(MAKE) -C $(WORKDIR)/buildenvs $*
@@ -201,4 +208,5 @@ buildenv-myself-full: ## OCI image containing the build environment for KraftKit
 buildenv-myself: ## OCI image containing KraftKit binaries.
 buildenv-qemu: ## OCI image containing a Unikraft-centric build of QEMU.
 buildenv-github-action: ## OCI image used for building Unikraft unikernels with a slimmed down version of kraftkit.
+tools: ## Build all tools.
 kraft: ## The kraft binary.
