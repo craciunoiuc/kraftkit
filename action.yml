@@ -6,10 +6,6 @@ branding:
   icon: package
   color: blue
 
-runs:
-  using: docker
-  image: buildenvs/github-action.Dockerfile
-
 inputs:
   # Global flags
   log-level:
@@ -38,21 +34,61 @@ inputs:
   
   # Running flags
   execute:
-    description: Run the unikernel.
+    description: If to run the unikernel.
     required: false
     default: false
 
   # Packaging flags
+  args:
+    description: Arguments to pass to the unikernel.
+    required: false
+  # Currently only OCI is supported
+  format:
+    description: Set the output format.
+    required: false
+  initrd:
+    description: Include an initrd at path.
+    required: false
+  memory:
+    description: Set the memory size. String of format "1M"/"1G"/"1K"
+    required: false
+  name:
+    description: Set the name of the output.
+    required: true
   output:
-    description: Set the output type and path.
+    description: Set the output path.
     required: false
   kconfig:
     description: Include all set KConfig with the output.
     required: false
+  # Not currently used
   rootfs:
-    description: Include a rootfs (initramfs) at path.
+    description: Include a rootfs at path.
     required: false
+  # If to push the output to a registry
   push:
     description: Push the output.
     required: false
     default: false
+
+runs:
+  using: docker
+  image: buildenvs/github-action.Dockerfile
+  args:
+    - ${{ inputs.log-level != "" && format("--log-level {0}", inputs.log-level) || "--log-level info" }}
+    - ${{ inputs.workdir != "" && format("--workdir {0}", inputs.workdir) || "" }}
+    - ${{ inputs.kraftfile != "" && format("--kraftfile {0}", inputs.kraftfile) || "" }}
+    - ${{ inputs.arch != "" && format("--arch {0}", inputs.arch) || "" }}
+    - ${{ inputs.plat != "" && format("--plat {0}", inputs.plat) || "" }}
+    - ${{ inputs.target != "" && format("--target {0}", inputs.target) || "" }}
+    - ${{ inputs.execute != false && "--execute" || "" }}
+    - ${{ inputs.args != "" && format("--args {0}", inputs.args) || "" }}
+    - ${{ inputs.format != "" && format("--format {0}", inputs.format) || "" }}
+    - ${{ inputs.initrd != "" && format("--initrd {0}", inputs.initrd) || "" }}
+    - ${{ inputs.memory != "" && format("--memory {0}", inputs.memory) || "" }}
+    - ${{ inputs.name != "" && format("--name {0}", inputs.name) || "" }}
+    - ${{ inputs.output != "" && format("--output {0}", inputs.output) || "" }}
+    - ${{ inputs.kconfig != false && "--kconfig" || "" }}
+    - ${{ inputs.rootfs != "" && format("--rootfs {0}", inputs.rootfs) || "" }}
+    - ${{ inputs.push != false && "--push" || "" }}
+  
