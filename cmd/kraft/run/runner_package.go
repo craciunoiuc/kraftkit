@@ -77,6 +77,8 @@ func (runner *runnerPackage) Prepare(ctx context.Context, opts *Run, machine *ma
 		packmanager.WithTypes(unikraft.ComponentTypeApp),
 		packmanager.WithName(runner.packName),
 		packmanager.WithCache(true),
+		packmanager.WithPlatform(string(opts.platform)),
+		packmanager.WithArchitecture(opts.Architecture),
 	)
 	if err != nil {
 		return err
@@ -90,6 +92,8 @@ func (runner *runnerPackage) Prepare(ctx context.Context, opts *Run, machine *ma
 			packmanager.WithTypes(unikraft.ComponentTypeApp),
 			packmanager.WithName(runner.packName),
 			packmanager.WithCache(false),
+			packmanager.WithPlatform(string(opts.platform)),
+			packmanager.WithArchitecture(opts.Architecture),
 		)
 		if err != nil {
 			return err
