@@ -102,6 +102,12 @@ func (handle *ContainerdHandler) DigestExists(ctx context.Context, dgst digest.D
 	return true, nil
 }
 
+// TODO(craciunoiuc): Update to support index manifests
+// ListIndexes implements DigestResolver.
+func (handle *ContainerdHandler) ListIndexes(ctx context.Context) (indexes []ocispec.Index, err error) {
+	return indexes, fmt.Errorf("not implemented: oci.handler.ContainerdHandler.ListIndexes")
+}
+
 // ListManifests implements DigestResolver.
 func (handle *ContainerdHandler) ListManifests(ctx context.Context) (manifests []ocispec.Manifest, err error) {
 	ctx, done, err := handle.lease(ctx)
