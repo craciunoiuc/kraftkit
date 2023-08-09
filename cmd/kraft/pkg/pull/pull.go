@@ -253,6 +253,8 @@ func (opts *Pull) Run(cmd *cobra.Command, args []string) error {
 					packmanager.WithSource(c.Source()),
 					packmanager.WithTypes(c.Type()),
 					packmanager.WithCache(opts.ForceCache),
+					packmanager.WithArchitecture(opts.Architecture),
+					packmanager.WithPlatform(opts.Platform),
 				},
 			})
 		}
@@ -270,6 +272,8 @@ func (opts *Pull) Run(cmd *cobra.Command, args []string) error {
 				query: []packmanager.QueryOption{
 					packmanager.WithCache(opts.ForceCache),
 					packmanager.WithName(arg),
+					packmanager.WithArchitecture(opts.Architecture),
+					packmanager.WithPlatform(opts.Platform),
 				},
 			})
 		}
