@@ -179,9 +179,9 @@ func (handle *ContainerdHandler) SaveDigest(ctx context.Context, ref string, des
 	switch desc.MediaType {
 	// case ociimages.MediaTypeDockerSchema2Manifest,
 	// 			ocispec.MediaTypeImageManifest,
-	// 			ociimages.MediaTypeDockerSchema2ManifestList,
-	// 			ocispec.MediaTypeImageIndex:
-	case ocispec.MediaTypeImageManifest:
+	// 			ociimages.MediaTypeDockerSchema2ManifestList:
+	case ocispec.MediaTypeImageIndex,
+		ocispec.MediaTypeImageManifest:
 		// ref, ok := desc.Annotations[ociimages.AnnotationImageName]
 		// if !ok {
 		// 	return fmt.Errorf("cannot push image layer without image annotation")
@@ -272,6 +272,7 @@ func (handle *ContainerdHandler) ResolveImage(ctx context.Context, fullref strin
 	return image.Spec(ctx)
 }
 
+// TODO(craciunoiuc): Update to support index manifests
 // FetchImage implements ImageFetcher.
 func (handle *ContainerdHandler) FetchImage(ctx context.Context, name, plat string, onProgress func(float64)) (err error) {
 	ctx, done, err := handle.lease(ctx)
@@ -500,8 +501,9 @@ func (handle *ContainerdHandler) PushImage(ctx context.Context, ref string, targ
 	)
 }
 
+// TODO(craciunoiuc): Update to support index manifests
 // UnpackImage implements ImageUnpacker.
-func (handle *ContainerdHandler) UnpackImage(ctx context.Context, ref string, dest string) (err error) {
+func (handle *ContainerdHandler) UnpackImage(ctx context.Context, ref string, platform string, dest string) (err error) {
 	ctx, done, err := handle.lease(ctx)
 	if err != nil {
 		return err
