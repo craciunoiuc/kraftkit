@@ -52,7 +52,7 @@ type GithubAction struct {
 
 	// Internal attributes
 	project app.Application
-	target  target.Target
+	targets []target.Target
 }
 
 func (opts *GithubAction) Pre(cmd *cobra.Command, args []string) (err error) {
@@ -143,15 +143,15 @@ func (opts *GithubAction) Pre(cmd *cobra.Command, args []string) (err error) {
 		return fmt.Errorf("cannot build more than one target using action")
 	}
 
-	opts.target = targets[0]
+	opts.targets = targets
 
 	// Infer arguments implicitly if there is only one target.  If we've made it
 	// this far, `target.Filter` only had one target to choose from.
 	if opts.Plat == "" {
-		opts.Plat = opts.target.Platform().Name()
+		opts.Plat = opts.targets[0].Platform().Name()
 	}
 	if opts.Arch == "" {
-		opts.Arch = opts.target.Architecture().Name()
+		opts.Arch = opts.targets[0].Architecture().Name()
 	}
 
 	return nil

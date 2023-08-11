@@ -59,17 +59,17 @@ func (opts *GithubAction) execute(ctx context.Context) error {
 	}
 
 	// Provide a meaningful name
-	targetName := opts.target.Name()
+	targetName := opts.targets[0].Name()
 	if targetName == opts.project.Name() || targetName == "" {
-		targetName = opts.target.Platform().Name() + "/" + opts.target.Architecture().Name()
+		targetName = opts.targets[0].Platform().Name() + "/" + opts.targets[0].Architecture().Name()
 	}
 
 	machine.Spec.Kernel = "project://" + opts.project.Name() + ":" + targetName
-	machine.Spec.Architecture = opts.target.Architecture().Name()
-	machine.Spec.Platform = opts.target.Platform().Name()
+	machine.Spec.Architecture = opts.targets[0].Architecture().Name()
+	machine.Spec.Platform = opts.targets[0].Platform().Name()
 	machine.Spec.ApplicationArgs = opts.Args
 
-	machine.Status.KernelPath = opts.target.Kernel()
+	machine.Status.KernelPath = opts.targets[0].Kernel()
 
 	if len(opts.InitRd) > 0 {
 		machine.Status.InitrdPath = opts.InitRd

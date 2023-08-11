@@ -20,8 +20,8 @@ import (
 func (opts *GithubAction) build(ctx context.Context) error {
 	if err := opts.project.Configure(
 		ctx,
-		opts.target, // Target-specific options
-		nil,         // No extra configuration options
+		opts.targets[0], // Target-specific options
+		nil,             // No extra configuration options
 		make.WithSilent(true),
 		make.WithExecOptions(
 			exec.WithStdin(iostreams.G(ctx).In),
@@ -34,7 +34,7 @@ func (opts *GithubAction) build(ctx context.Context) error {
 
 	return opts.project.Build(
 		ctx,
-		opts.target, // Target-specific options
+		opts.targets[0], // Target-specific options
 		app.WithBuildMakeOptions(
 			make.WithMaxJobs(true),
 			make.WithExecOptions(

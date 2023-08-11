@@ -46,6 +46,8 @@ func (opts *GithubAction) pull(ctx context.Context) error {
 			packmanager.WithTypes(component.Type()),
 			packmanager.WithVersion(component.Version()),
 			packmanager.WithSource(component.Source()),
+			packmanager.WithPlatform(string(opts.Plat)),
+			packmanager.WithArchitecture(opts.Arch),
 			// packmanager.WithAuthConfig(auths),
 		)
 		if err != nil {
