@@ -19,6 +19,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var cmdAliases = map[string]string{}
+
 func main() {
 	if len(os.Args[1:]) == 0 {
 		fmt.Printf("usage: %s outdir\n", os.Args[0])
@@ -36,6 +38,57 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+
+	if err := generateMarkdownCloud(kraft.NewCmd(), outdir); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
+
+func generateMarkdownCloud(cmd *cobra.Command, dir string) error {
+	buf := new(bytes.Buffer)
+
+	buf.WriteString("---\n")
+	buf.WriteString("title: \"" + "aliases and abbreviations" + "\"\n")
+	buf.WriteString("description: " + "Aliases and abbreviations of all cloud commands" + "\n")
+	buf.WriteString("---\n\n")
+
+	buf.WriteString("The following table lists all the aliases and abbreviations of the `kraft cloud` commands.\n\n")
+
+	// Sort the aliases
+	var cmdAliasesToSort []string
+	for k := range cmdAliases {
+		cmdAliasesToSort = append(cmdAliasesToSort, k)
+	}
+
+	sort.Strings(cmdAliasesToSort)
+
+	buf.WriteString("| Command | Aliases |\n")
+	buf.WriteString("| ------- | ------- |\n")
+	for _, command := range cmdAliasesToSort {
+		buf.WriteString(fmt.Sprintf("| `%s` | `%s` |\n", command, cmdAliases[command]))
+	}
+
+	filename := dir + "kraft/cloud/aliases-and-abbreviations.mdx"
+
+	fmt.Printf("mkdir: %s\n", filepath.Dir(filename))
+
+	if err := os.MkdirAll(filepath.Dir(filename), fs.ModeSetgid|0o775); err != nil {
+		return err
+	}
+
+	fmt.Printf("write: %s\n", filename)
+
+	w, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+
+	defer w.Close()
+
+	_, err = buf.WriteTo(w)
+
+	return err
 }
 
 func generateMarkdown(cmd *cobra.Command, dir string) error {
@@ -84,6 +137,10 @@ func generateMarkdown(cmd *cobra.Command, dir string) error {
 	}
 
 	if hasAliases(cmd) {
+		if strings.Contains(name, "cloud") {
+			cmdAliases[name] = strings.Join(cmd.Aliases, ", ")
+		}
+
 		buf.WriteString("## Aliases\n\n")
 		buf.WriteString("The `" + name + "` command can also be run as:\n\n")
 		buf.WriteString("```\n")
@@ -93,7 +150,7 @@ func generateMarkdown(cmd *cobra.Command, dir string) error {
 
 	if hasSeeAlso(cmd) {
 		buf.WriteString("## See Also\n\n")
-		if cmd.HasParent() {
+		if cmd.HasParent() && cmd.Parent().CommandPath() != "kraft" {
 			parent := cmd.Parent()
 			pname := parent.CommandPath()
 			link := "/cli/" + strings.ReplaceAll(pname, " ", "/")
