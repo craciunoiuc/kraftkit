@@ -153,6 +153,17 @@ func (service *machineV1alpha1Service) Create(ctx context.Context, machine *mach
 		machine.Status.LogFile = filepath.Join(machine.Status.StateDir, "machine.log")
 	}
 
+	if machine.Status.SerialPort == 0 {
+		// TODO check why port is always 4444 instead of random
+		// Pick random free port
+		addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+		if err != nil {
+			return machine, err
+		}
+
+		machine.Status.SerialPort = uint16(addr.Port)
+	}
+
 	if machine.Spec.Resources.Requests == nil {
 		machine.Spec.Resources.Requests = make(corev1.ResourceList, 2)
 	}
@@ -205,9 +216,16 @@ func (service *machineV1alpha1Service) Create(ctx context.Context, machine *mach
 			NoWait:    true,
 			Server:    true,
 		}),
-		WithSerial(QemuHostCharDevFile{
-			Monitor:  false,
-			Filename: machine.Status.LogFile,
+		// WithSerial(QemuHostCharDevFile{
+		// 	Monitor:  false,
+		// 	Filename: machine.Status.LogFile,
+		// }),
+		// TODO Check why arg is `disconnected:tcp:127.0.0.1:5444,server=on` with logging
+		WithSerial(QemuHostCharDevTCP{
+			Monitor: false,
+			Host:    "127.0.0.1",
+			Port:    int(machine.Status.SerialPort),
+			Server:  true,
 		}),
 		WithMonitor(QemuHostCharDevUnix{
 			SocketDir: machine.Status.StateDir,
@@ -486,9 +504,39 @@ func (service *machineV1alpha1Service) Create(ctx context.Context, machine *mach
 
 	machine.CreationTimestamp = metav1.Now()
 
-	// Start and also wait for the process to be released, this ensures the
+	if err := process.Start(ctx); err != nil {
+		machine.Status.State = machinev1alpha1.MachineStateFailed
+		return machine, fmt.Errorf("could not start QEMU process: %v", err)
+	}
+
+	// Connect to the Serial TCP socket and pipe output to the log file
+	// TODO move to command as this needs to run every time a command is run (to make it stateless)
+	go func() {
+		conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", machine.Status.SerialPort))
+		if err != nil {
+			machine.Status.State = machinev1alpha1.MachineStateFailed
+			return
+		}
+		machine.Status.InputStream = conn
+		defer conn.Close()
+
+		go func() {
+			<-ctx.Done()
+			conn.Close()
+		}()
+
+		if _, err = io.Copy(fi, conn); err != nil {
+			if strings.Contains(err.Error(), "use of closed network connection") ||
+				strings.Contains(err.Error(), "connection reset by peer") {
+				return
+			}
+			machine.Status.State = machinev1alpha1.MachineStateFailed
+		}
+	}()
+
+	// Wait for the process to be released, this ensures the
 	// program is actively being executed.
-	if err := process.StartAndWait(ctx); err != nil {
+	if err := process.Wait(); err != nil {
 		machine.Status.State = machinev1alpha1.MachineStateFailed
 
 		// Propagate the contents of the QEMU log file as an error

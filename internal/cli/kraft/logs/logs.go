@@ -158,6 +158,9 @@ func (opts *LogOptions) Run(ctx context.Context, args []string) error {
 	var errGroup []error
 	observations := waitgroup.WaitGroup[*machineapi.Machine]{}
 
+	// TODO Restrict inputting to single machine at a time
+	// TODO Move TCP Dial here
+
 	for _, machine := range loggedMachines {
 		prefix := ""
 		if !opts.NoPrefix {
@@ -211,6 +214,12 @@ func FollowLogs(ctx context.Context, machine *machineapi.Machine, controller mac
 	var exitErr error
 	var eof bool
 
+	// Input
+	go func() {
+		io.Copy(machine.Status.InputStream, iostreams.G(ctx).In)
+	}()
+
+	// Output
 	go func() {
 		events, errs, err := controller.Watch(ctx, machine)
 		if err != nil {

@@ -6,6 +6,7 @@ package v1alpha1
 
 import (
 	"context"
+	"io"
 	"time"
 
 	zip "api.zip"
@@ -143,6 +144,12 @@ type MachineStatus struct {
 
 	// LogFile is the in-host path to the log file of the machine.
 	LogFile string `json:"logFile,omitempty"`
+
+	// SerialPort is the in-host path to the serial port of the machine.
+	SerialPort uint16 `json:"serialPort,omitempty"`
+
+	// InputStream is the channel where the machine's input is read from.
+	InputStream io.ReadWriter `json:"inputStream,omitempty"`
 
 	// PlatformConfig is platform-specific attributes which are populated by the
 	// underlying machine service implementation.
